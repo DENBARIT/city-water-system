@@ -1,7 +1,7 @@
 import express from 'express';
 import { config } from 'dotenv';
-import { connectDB, disconnectDB } from '../config/db.js';
-import authRoutes from '../routes/authRoutes.js';
+import { connectDB, disconnectDB } from './config/db.js';
+import authRoutes from './routes/authRoutes.js';
 import cors from 'cors';
 // Load environment variables from .env
 config();

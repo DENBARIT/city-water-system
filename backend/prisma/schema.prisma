@@ -30,6 +30,7 @@ enum UserRole {
 
   FIELD_OFFICER
   CUSTOMER
+  MANUAL_METER_READER
 }
 
 enum AccountStatus {
@@ -190,7 +191,7 @@ enum ResourceAudience {
 }
 
 enum AnnouncementAudience {
-  // You can target by roles
+  //  Target by roles
   ALL
   CUSTOMERS
   FIELD_OFFICERS
@@ -221,6 +222,16 @@ enum ConsumptionAnomalyType {
   SPIKE
   DROP
   ZERO_USAGE
+}
+
+enum ReadingMode {
+  OCR
+  MANUAL
+}
+
+enum ReadingSource {
+  OCR
+  MANUAL
 }
 
 enum WeekDay {
@@ -259,21 +270,23 @@ model SubCity {
   meters        Meter[]
   schedules     WaterSchedule[]
   announcements Announcement[]
-  tariffs       Tariff[]
-  ocrWindows    OCRWindow[]
-  reports       Report[]
 
-  complaints Complaint[]
-  bills      Bill[]
-  payments   Payment[]
+  ocrWindows OCRWindow[]
+  reports    Report[]
+
+  readingMode ReadingMode @default(OCR)
+  complaints  Complaint[]
+  bills       Bill[]
+  payments    Payment[]
 
   billingOfficerAssignments   BillingOfficerAssignment[]
   complaintOfficerAssignments ComplaintOfficerAssignment[]
 
   fieldOfficerWoredaAssignments FieldOfficerWoredaAssignment[]
 
-  infrastructureProjects InfrastructureProject[]
-  trainingSessions       TrainingSession[]
+  infrastructureProjects      InfrastructureProject[]
+  trainingSessions            TrainingSession[]
+  manualMeterReaderAssignment ManualMeterReaderAssignment[]
 
   @@index([isActive])
   @@index([deletedAt])
@@ -296,9 +309,10 @@ model Woreda {
 
   fieldOfficerWoredaAssignments FieldOfficerWoredaAssignment[]
 
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
+  createdAt                   DateTime                      @default(now())
+  updatedAt                   DateTime                      @updatedAt
+  deletedAt                   DateTime?
+  manualMeterReaderAssignment ManualMeterReaderAssignment[]
 
   @@unique([subCityId, name])
   @@index([subCityId])
@@ -385,6 +399,11 @@ model User {
 
   fieldOfficerWoredas FieldOfficerWoredaAssignment[] @relation("FieldOfficerAssignments")
 
+  // for manual meter readers
+  manualReaderAssignments        ManualMeterReaderAssignment[] @relation("ManualReaderAssignments")
+  createdManualReaderAssignments ManualMeterReaderAssignment[] @relation("ManualReaderAssignedByAdmin")
+
+  manualEnteredReadings   MeterReading[]       @relation("ManualEnteredReadings")
   // Training
   trainingAttendances     TrainingAttendance[]
   createdTrainingSessions TrainingSession[]    @relation("TrainingCreatedBy")
@@ -404,6 +423,7 @@ model User {
   messagesReceived Message[]        @relation("MessagesReceived")
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
+  MeterReading     MeterReading[]
 
   @@index([role])
   @@index([status])
@@ -435,6 +455,32 @@ model UserPreference {
 }
 
 // OFFICER ASSIGNMENTS
+
+model ManualMeterReaderAssignment {
+  id String @id @default(uuid())
+
+  subCityId String
+  subCity   SubCity @relation(fields: [subCityId], references: [id], onDelete: Cascade)
+
+  woredaId String
+  woreda   Woreda @relation(fields: [woredaId], references: [id], onDelete: Cascade)
+
+  readerId String
+  reader   User   @relation("ManualReaderAssignments", fields: [readerId], references: [id], onDelete: Cascade)
+
+  isActive Boolean @default(true)
+
+  assignedById String?
+  assignedBy   User?   @relation("ManualReaderAssignedByAdmin", fields: [assignedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([woredaId, readerId])
+  @@index([subCityId])
+  @@index([woredaId])
+  @@index([readerId])
+}
 
 model BillingOfficerAssignment {
   id String @id @default(uuid())
@@ -627,7 +673,13 @@ model MeterReading {
   billedAt DateTime?
 
   submittedById String?
-  submittedBy   User?   @relation("SubmittedReadings", fields: [submittedById], references: [id], onDelete: SetNull)
+  submittedBy   User?         @relation("SubmittedReadings", fields: [submittedById], references: [id], onDelete: SetNull)
+  // NEW: how reading was submitted
+  source        ReadingSource @default(OCR)
+
+  // For manual entry
+  enteredByManualReaderId String?
+  enteredByManualReader   User?   @relation("ManualEnteredReadings", fields: [enteredByManualReaderId], references: [id], onDelete: SetNull)
 
   bill Bill?
 
@@ -635,6 +687,11 @@ model MeterReading {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // User   User?   @relation(fields: [userId], references: [id])
+  // userId String?
+  User   User?   @relation(fields: [userId], references: [id])
+  userId String?
 
   @@unique([meterId, readingMonth, readingYear])
   @@index([meterId])
@@ -648,11 +705,8 @@ model MeterReading {
 model Tariff {
   id String @id @default(uuid())
 
-  subCityId String?
-  subCity   SubCity? @relation(fields: [subCityId], references: [id], onDelete: SetNull)
-
   name     String
-  isActive Boolean @default(true)
+  isActive Boolean @default(false)
 
   // late payment policy (percentage per day)
   latePenaltyPerDayPercent Float @default(0)
@@ -666,12 +720,15 @@ model Tariff {
   blocks TariffBlock[]
   bills  Bill[]
 
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+
   version Int @default(1)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([subCityId])
+  @@unique([version])
   @@index([isActive])
 }
 
@@ -706,13 +763,13 @@ model Bill {
   meter   Meter  @relation(fields: [meterId], references: [id], onDelete: Restrict)
 
   readingId String       @unique
-  reading   MeterReading @relation(fields: [readingId], references: [id], onDelete: Cascade)
+  reading   MeterReading @relation(fields: [readingId], references: [id], onDelete: Restrict)
 
   customerId String?
   customer   User?   @relation("CustomerBills", fields: [customerId], references: [id], onDelete: SetNull)
 
   subCityId String
-  subCity   SubCity? @relation(fields: [subCityId], references: [id], onDelete: Cascade)
+  subCity   SubCity? @relation(fields: [subCityId], references: [id], onDelete: Restrict)
 
   billMonth Int
   billYear  Int
@@ -734,7 +791,7 @@ model Bill {
 
   totalAmount Decimal @db.Decimal(18, 2)
 
-  paidAmount Float @default(0)
+  paidAmount Decimal @default(0) @db.Decimal(18, 2)
 
   status BillStatus @default(UNPAID)
 
@@ -764,9 +821,9 @@ model Payment {
   customer   User?   @relation("CustomerPayments", fields: [customerId], references: [id], onDelete: SetNull)
 
   subCityId String
-  subCity   SubCity? @relation(fields: [subCityId], references: [id], onDelete: Cascade)
+  subCity   SubCity? @relation(fields: [subCityId], references: [id], onDelete: Restrict)
 
-  amount Float
+  amount Decimal       @db.Decimal(18, 2)
   method PaymentMethod
   status PaymentStatus @default(PENDING)
 
@@ -774,7 +831,7 @@ model Payment {
   referenceNumber String?
 
   // gateway returns error message sometimes.
-  // also your backend can set it.
+  // backend can see it
   failureReason String?
 
   initiatedAt DateTime  @default(now())
@@ -782,6 +839,7 @@ model Payment {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  // SubCity   SubCity  @relation(fields: [subCityId], references: [id])
 
   @@index([paidAt])
   @@index([billId])
@@ -799,7 +857,7 @@ model Complaint {
   customer   User   @relation("CustomerComplaints", fields: [customerId], references: [id], onDelete: Cascade)
 
   subCityId String
-  subCity   SubCity? @relation(fields: [subCityId], references: [id], onDelete: Cascade)
+  subCity   SubCity? @relation(fields: [subCityId], references: [id], onDelete: Restrict)
 
   woredaId String?
   woreda   Woreda? @relation(fields: [woredaId], references: [id], onDelete: SetNull)
