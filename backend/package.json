@@ -28,5 +28,13 @@
     "prettier": "^2.8.8",
     "prettier-plugin-prisma": "^4.0.0",
     "prisma": "5.22.0"
+  },
+  "overrides": {
+    "lodash": "^4.17.21",
+    "hono": "^4.12.0",
+    "@mrleebo/prisma-ast": "^0.13.2",
+    "@chevrotain/gast": "^10.5.1",
+    "@chevrotain/cst-dts-gen": "^10.5.1",
+    "chevrotain": "^10.5.1"
   }
 }

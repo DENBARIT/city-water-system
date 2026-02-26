@@ -326,21 +326,20 @@ model User {
   id String @id @default(uuid())
 
   // LOGIN (REQUIRED)
-  phoneE164     String @unique // +251912440673
-  phoneNational String @unique // 912440673
-  passwordHash  String
+  phoneE164 String @unique // +251912440673
 
-  // OPTIONAL
-  username String? @unique
-  email    String? @unique
+  nationalId   String @unique
+  passwordHash String
 
+  // CUSTOMER only: 1 user -> 1 meter
+  meter           Meter? // optional
+  email           String? @unique
   fullName        String?
-  nationalId      String? @unique
   profileImageUrl String?
 
   // Address
   houseNumber String?
-  kebele      String?
+  // kebele      String
 
   role   UserRole
   status AccountStatus @default(ACTIVE)
@@ -353,9 +352,6 @@ model User {
 
   woredaId String?
   woreda   Woreda? @relation(fields: [woredaId], references: [id], onDelete: SetNull)
-
-  // CUSTOMER only: 1 user -> 1 meter
-  meter Meter?
 
   // Preferences (sync across devices)
   preference UserPreference?
@@ -424,12 +420,29 @@ model User {
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
   MeterReading     MeterReading[]
+  // Meter            Meter[]
+
+  registeredMeters Meter[]         @relation("MeterRegisteredBy")
+  PasswordReset    PasswordReset[]
 
   @@index([role])
   @@index([status])
   @@index([subCityId])
   @@index([woredaId])
   @@index([deletedAt])
+}
+
+model PasswordReset {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String // hashed reset code
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+  usedAt    DateTime? // optional, for auditing
+
+  @@index([tokenHash])
+  @@index([expiresAt])
 }
 
 // USER PREFERENCES
@@ -580,8 +593,18 @@ model Meter {
   meterNumber String      @unique
   status      MeterStatus @default(ACTIVE)
 
-  subCityId String
-  subCity   SubCity @relation(fields: [subCityId], references: [id], onDelete: Restrict)
+  subCityId             String
+  subCity               SubCity @relation(fields: [subCityId], references: [id], onDelete: Restrict)
+  //  // 🔥 NEW: ownership verification data
+  registeredNationalId  String?
+  registeredFullName    String?
+  registeredHouseNumber String?
+
+  // Who registered this meter physically
+  registeredById String?
+  registeredBy   User?   @relation("MeterRegisteredBy", fields: [registeredById], references: [id], onDelete: SetNull)
+
+  registeredAt DateTime?
 
   // 1 meter -> 1 customer
   customerId String? @unique
@@ -608,6 +631,7 @@ model Meter {
 
   @@index([subCityId])
   @@index([status])
+  @@index([registeredNationalId])
   @@index([isLocked])
   @@index([deletedAt])
 }
