@@ -17,7 +17,7 @@ enum UserRole {
 
   WOREDA_BILLING_OFFICER
   WOREDA_COMPLAINT_OFFICER
-
+  WOREDA_ADMINS
   FIELD_OFFICER
   CUSTOMER
   MANUAL_METER_READER
@@ -189,7 +189,7 @@ enum AnnouncementAudience {
   SUBCITY_ADMINS
   SUBCITY_BILLING_OFFICERS
   SUBCITY_COMPLAINT_OFFICERS
-
+  WOREDA_ADMINS
   WOREDA_BILLING_OFFICERS
   WOREDA_COMPLAINT_OFFICERS
 }
@@ -950,8 +950,8 @@ model SubCity {
   description String?
   isActive    Boolean @default(true)
 
-cityId     String?
- adminId String?
+  cityId  String?
+  adminId String?
   admin   User?   @relation("SubCityAdmin", fields: [adminId], references: [id], onDelete: SetNull)
 
   createdAt DateTime  @default(now())
