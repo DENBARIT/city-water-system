@@ -1,6 +1,6 @@
-import prisma from '../config/db.js';
-import { hashPassword, comparePassword } from '../utils/hashtoken.js';
-import { generateAccessToken, generateRefreshToken } from '../utils/generateToken.js';
+import { prisma } from '../../config/db.js';
+import { hashPassword, comparePassword } from '../../utils/hashtoken.js';
+import { generateAccessToken, generateRefreshToken } from '../../utils/generateToken.js';
 import fs from 'fs/promises';
 import path from 'path';
 import crypto from 'crypto';
@@ -146,7 +146,7 @@ class AuthService {
         status: true,
         subCityId: true,
         woredaId: true,
-        meter: {
+        meters: {
           select: {
             id: true,
             meterNumber: true,

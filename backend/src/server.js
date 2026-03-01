@@ -1,16 +1,20 @@
 import express from 'express';
 import { config } from 'dotenv';
 import { connectDB, disconnectDB } from './config/db.js';
-import authRoutes from './routes/authRoutes.js';
+import authRoutes from './modules/auth/authRoutes.js';
 import cors from 'cors';
 // Load environment variables from .env
 config();
+
+if (process.env.ENABLE_EMAIL_QUEUE === 'true') {
+  await import('./queues/emailQueue.js');
+}
+
 connectDB();
 
 const app = express();
 // Middleware
 app.use(cors());
-app.use(express.json());
 // body parsing
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

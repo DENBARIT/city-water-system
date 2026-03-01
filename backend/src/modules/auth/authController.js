@@ -1,5 +1,4 @@
-import AuthService from '../../services/authService.js';
-
+import AuthService from './authService.js';
 class AuthController {
   /**
    * POST /api/auth/register
@@ -45,7 +44,7 @@ class AuthController {
    */
   async getMe(req, res, next) {
     try {
-      const userId = req.user.id; // from auth middleware
+      const userId = req.user.userId; // from auth middleware
       const user = await AuthService.getMe(userId);
       if (!user) {
         return res.status(404).json({ success: false, message: 'User not found' });

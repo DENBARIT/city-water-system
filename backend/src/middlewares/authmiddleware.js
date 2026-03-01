@@ -1,5 +1,7 @@
-import { verify } from 'jsonwebtoken';
-import prisma from '../config/db.js';
+import jwt from 'jsonwebtoken';
+import { prisma } from '../config/db.js';
+
+const { verify } = jwt;
 
 export const authenticate = async (req, res, next) => {
   const authHeader = req.headers.authorization;

@@ -9,32 +9,33 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js"
   },
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "module",
   "dependencies": {
-    "@prisma/client": "5.22.0",
+    "@prisma/adapter-pg": "^7.4.2",
+    "@prisma/client": "^7.4.2",
     "bcrypt": "^6.0.0",
+    "bull": "^4.16.5",
     "cors": "^2.8.6",
     "dotenv": "^17.2.4",
     "express": "^5.2.1",
+    "html-to-text": "^9.0.5",
+    "ioredis": "^5.10.0",
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.0.2",
+    "nodemailer": "^6.9.4",
     "nodemon": "^3.1.11",
+    "pg": "^8.19.0",
     "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
     "prettier": "^2.8.8",
     "prettier-plugin-prisma": "^4.0.0",
-    "prisma": "5.22.0"
-  },
-  "overrides": {
-    "lodash": "^4.17.21",
-    "hono": "^4.12.0",
-    "@mrleebo/prisma-ast": "^0.13.2",
-    "@chevrotain/gast": "^10.5.1",
-    "@chevrotain/cst-dts-gen": "^10.5.1",
-    "chevrotain": "^10.5.1"
+    "prisma": "^7.4.2"
   }
 }
