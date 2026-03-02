@@ -29,5 +29,9 @@ router.post('/admin', validateAdmin, SuperAdminController.createAdmin);
 router.put('/admin/:id', validateAdmin, SuperAdminController.updateAdmin);
 router.delete('/admin/:id', SuperAdminController.deleteAdmin);
 router.get('/admins', SuperAdminController.getAdmins);
+// Get Complaint Officers
+router.get('/complaint-officers', authenticate, SuperAdminController.getComplaintOfficers);
+
+router.get('/billing-officers', authenticate, SuperAdminController.getBillingOfficers);
 
 export default router;

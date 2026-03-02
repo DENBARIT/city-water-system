@@ -1,6 +1,8 @@
 import express from 'express';
 import { config } from 'dotenv';
 import { connectDB, disconnectDB } from './config/db.js';
+import subcityAdminRoutes from './modules/subcityAdmin/subcityAdminRoutes.js';
+import superAdminRoutes from './modules/superAdmin/superAdminRoutes.js';
 import authRoutes from './modules/auth/authRoutes.js';
 import cors from 'cors';
 // Load environment variables from .env
@@ -20,7 +22,12 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 // const port = process.env.PORT || 5001;
 const port = 5001;
+// Routes
+
 app.use('/auth', authRoutes);
+app.use('/super-admin', superAdminRoutes);
+app.use('/subcity-admin', subcityAdminRoutes);
+
 let server = null;
 server = app.listen(port, () => {
   console.log(`Server is running on port ${port}`);

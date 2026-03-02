@@ -167,6 +167,23 @@ class SuperAdminController {
       res.status(400).json({ error: err.message });
     }
   }
+  async getComplaintOfficers(req, res) {
+    try {
+      const result = await SuperAdminService.getComplaintOfficers(req.query);
+      res.json(result);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  }
+
+  async getBillingOfficers(req, res) {
+    try {
+      const result = await SuperAdminService.getBillingOfficers(req.query);
+      res.json(result);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  }
   // Add more endpoints here as needed (billing, complaints, etc.)
 }
 

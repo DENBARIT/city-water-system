@@ -23,6 +23,14 @@ enum UserRole {
   MANUAL_METER_READER
 }
 
+enum FieldOfficerType {
+  MANUAL_METER_READER
+  PLUMBER
+  TECHNICIAN
+  MAINTENANCE
+  INSPECTOR
+}
+
 enum AccountStatus {
   ACTIVE
   SUSPENDED
@@ -1123,8 +1131,9 @@ model User {
   houseNumber String?
   // kebele      String
 
-  role   UserRole
-  status AccountStatus @default(ACTIVE)
+  role             UserRole
+  fieldOfficerType FieldOfficerType?
+  status           AccountStatus     @default(ACTIVE)
 
   lastLoginAt DateTime?
 

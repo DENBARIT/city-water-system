@@ -133,6 +133,45 @@ class SuperAdminService {
 
     return prisma.user.findMany({ where: filters });
   }
+  // Get Complaint Officers
+  static async getComplaintOfficers({ subCityId, woredaId }) {
+    return prisma.user.findMany({
+      where: {
+        role: {
+          in: ['SUBCITY_COMPLAINT_OFFICER', 'WOREDA_COMPLAINT_OFFICER'],
+        },
+        ...(subCityId && { subCityId }),
+        ...(woredaId && { woredaId }),
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        fullName: true,
+        role: true,
+        subCityId: true,
+        woredaId: true,
+      },
+    });
+  }
+  static async getBillingOfficers({ subCityId, woredaId }) {
+    return prisma.user.findMany({
+      where: {
+        role: {
+          in: ['SUBCITY_BILLING_OFFICER', 'WOREDA_BILLING_OFFICER'],
+        },
+        ...(subCityId && { subCityId }),
+        ...(woredaId && { woredaId }),
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        fullName: true,
+        role: true,
+        subCityId: true,
+        woredaId: true,
+      },
+    });
+  }
 }
 
 export default SuperAdminService;
