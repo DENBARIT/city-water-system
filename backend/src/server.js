@@ -1,11 +1,13 @@
 import express from 'express';
 import { config } from 'dotenv';
 import { connectDB, disconnectDB } from './config/db.js';
-// import subcityAdminRoutes from './modules/subcityAdmin/subcityAdminRoutes.js';
+import superAdminRoutes from './modules/superAdmin/superAdmin.routes.js';
 // import superAdminRoutes from './modules/superAdmin/superAdminRoutes.js';
 import authRoutes from './modules/auth/auth.routes.js';
 import colors from 'colors';
 import cors from 'cors';
+import  errorHandler  from "./errors/errorHandler.js";
+
 // Load environment variables from .env
 config();
 
@@ -26,8 +28,11 @@ const port = process.env.PORT || 5001;
 // Routes
 
 app.use('/auth', authRoutes);
-// app.use('/super-admin', superAdminRoutes);
+app.use('/super-admin', superAdminRoutes);
 // app.use('/subcity-admin', subcityAdminRoutes);
+
+//error handling middleware
+app.use(errorHandler);
 
 let server = null;
 server = app.listen(port, () => {
