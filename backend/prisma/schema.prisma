@@ -7,8 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-
-
 // =========================
 // ENUMS
 // =========================
@@ -36,32 +34,40 @@ enum AccountStatus {
 model User {
   id String @id @default(uuid())
 
-  fullName     String
-  phoneE164    String @unique
-  email        String @unique
-  nationalId   String @unique
-  passwordHash String
+  fullName       String
+  phoneE164      String @unique
+  email          String @unique
+  nationalId     String @unique
+  passwordHash   String
   profileImageUrl String?
 
   otp       String?
   otpExpiry DateTime?
-  emailVerified Boolean  @default(false)
+  emailVerified Boolean @default(false)
 
   role             UserRole
   fieldOfficerType FieldOfficerType?
   status           AccountStatus @default(ACTIVE)
   lastLoginAt      DateTime?
 
-  subCityId String
-  subCity   SubCity @relation(fields: [subCityId], references: [id], onDelete: Restrict)
+  subCityId String?
+  subCity   SubCity? @relation(fields: [subCityId], references: [id], onDelete: Restrict)
 
   woredaId String?
   woreda   Woreda? @relation(fields: [woredaId], references: [id], onDelete: SetNull)
 
+  // Relations
   meter Meter?
+
+  meterReadingsCreated MeterReading[] @relation("MeterReadingCreatedBy")
+  bills                Bill[]
+  payments             Payment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([subCityId])
+  @@index([woredaId])
 }
 
 // =========================
@@ -74,8 +80,89 @@ model Meter {
   customerId String? @unique
   customer   User? @relation(fields: [customerId], references: [id], onDelete: SetNull)
 
+  readings MeterReading[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// =========================
+// METER READING MODEL
+// =========================
+model MeterReading {
+  id String @id @default(uuid())
+
+  meterId String
+  meter   Meter @relation(fields: [meterId], references: [id])
+
+  readingValue Float
+  readingDate  DateTime
+
+  createdById String
+  createdBy   User @relation("MeterReadingCreatedBy", fields: [createdById], references: [id])
+
+  bills Bill[] // back-relation for Bill
+
+  createdAt DateTime @default(now())
+
+  @@index([meterId])
+  @@index([createdById])
+}
+
+// =========================
+// BILL MODEL
+// =========================
+model Bill {
+  id String @id @default(uuid())
+
+  customerId String
+  customer   User @relation(fields: [customerId], references: [id])
+
+  meterReadingId String
+  meterReading   MeterReading @relation(fields: [meterReadingId], references: [id])
+
+  consumption Float
+  amount      Float
+  status      String
+
+  payments Payment[]
+
+  createdAt DateTime @default(now())
+
+  @@index([customerId])
+  @@index([meterReadingId])
+}
+
+// =========================
+// PAYMENT MODEL
+// =========================
+model Payment {
+  id String @id @default(uuid())
+
+  billId String
+  bill   Bill @relation(fields: [billId], references: [id])
+
+  userId String
+  user   User @relation(fields: [userId], references: [id])
+
+  amount Float
+  paymentDate DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  @@index([billId])
+  @@index([userId])
+}
+
+// =========================
+// WATER TARIFF MODEL
+// =========================
+model Tariff {
+  id String @id @default(uuid())
+
+  pricePerCubicMeter Float
+  effectiveFrom DateTime
+
+  createdAt DateTime @default(now())
 }
 
 // =========================
@@ -83,20 +170,25 @@ model Meter {
 // =========================
 model SubCity {
   id   String @id @default(uuid())
-  name String
-  users User[]
+  name String @unique
+
+  users   User[]
   woredas Woreda[]
+
+  createdAt DateTime @default(now())
 }
 
 // =========================
 // WOREDA MODEL
 // =========================
 model Woreda {
-  id        String @id @default(uuid())
-  name      String
+  id   String @id @default(uuid())
+  name String
 
   subCityId String
   subCity   SubCity @relation(fields: [subCityId], references: [id])
 
   users User[]
+
+  @@index([subCityId])
 }
