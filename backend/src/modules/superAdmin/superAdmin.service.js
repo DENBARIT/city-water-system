@@ -19,6 +19,7 @@ export const createSuperAdmin = async (data) => {
       fullName: data.fullName,
       email: data.email,
       nationalId: data.nationalId,
+      emailVerified: true,
       phoneE164: data.phoneNumber,
       passwordHash: hashed,
       role: "SYSTEM_ADMIN",
@@ -106,6 +107,7 @@ export const createSubcityAdmin = async (data) => {
       email: data.email,
       nationalId: data.nationalId,
       phoneE164: data.phoneNumber,
+      emailVerified: true,
       passwordHash: hashed,
       role: "SUBCITY_ADMIN",
       subCity: { connect: { id: data.subcityId } }

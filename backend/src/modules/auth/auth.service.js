@@ -2,6 +2,8 @@ import prisma from '../../config/db.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { sendPasswordResetOtp, sendOtp } from '../../config/email.js';
+import { AppError } from "../../utils/ApiError.js";
+
 
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecret';
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'superrefreshsecret';
@@ -51,10 +53,14 @@ export async function registerUser(data) {
   return user;
 }
 
-
 const generateTokens = (user) => {
   const accessToken = jwt.sign(
-    { id: user.id, role: user.role },
+    {
+      id: user.id,
+      role: user.role,
+      subCityId: user.subCityId ?? null,
+      woredaId: user.woredaId ?? null,
+    },
     JWT_SECRET,
     { expiresIn: JWT_EXPIRY }
   );
@@ -70,14 +76,30 @@ const generateTokens = (user) => {
 
 export async function loginUser({ emailOrPhone, password }) {
   const user = await prisma.user.findFirst({
-    where: { OR: [{ email: emailOrPhone }, { phoneE164: emailOrPhone }] }
+    where: { OR: [{ email: emailOrPhone }, { phoneE164: emailOrPhone }] },
+    select: {
+      id: true,
+      role: true,
+      passwordHash: true,
+      emailVerified: true,
+      status: true,
+      subCityId: true,
+      woredaId: true,
+    },
   });
 
-  if (!user) throw new Error('Invalid credentials');
-  if (!user.emailVerified) throw new Error('Email not verified. Please verify your email before logging in.');
+  if (!user) throw new AppError('Invalid credentials.', 401);
+  if (!user.emailVerified) throw new AppError('Email not verified. Please verify your email before logging in.', 401);
+  if (user.status === 'SUSPENDED') throw new AppError('Your account has been suspended. Please contact the administrator.', 403);
+  if (user.status === 'INACTIVE') throw new AppError('Your account is inactive. Please contact the administrator.', 403);
 
   const match = await bcrypt.compare(password, user.passwordHash);
-  if (!match) throw new Error('Invalid credentials');
+  if (!match) throw new AppError('Invalid credentials.', 401);
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { lastLoginAt: new Date() },
+  });
 
   const { accessToken, refreshToken } = generateTokens(user);
 
