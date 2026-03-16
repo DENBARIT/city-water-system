@@ -13,12 +13,13 @@ datasource db {
 enum UserRole {
   CUSTOMER
   FIELD_OFFICER
+  WOREDA_ADMIN
   SUBCITY_ADMIN
   SYSTEM_ADMIN
 }
 
 enum FieldOfficerType {
-  METER_READER
+  BILLING_OFFICER
   COMPLAINT_OFFICER
 }
 
@@ -28,82 +29,175 @@ enum AccountStatus {
   SUSPENDED
 }
 
+enum BillStatus {
+  UNPAID
+  PAID
+  OVERDUE
+  ESCALATED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum ComplaintStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+enum ReadingSource {
+  MANUAL
+  OCR
+}
+
+enum CustomerFlag {
+  NONE
+  WARNING
+  CRITICAL
+  LEGAL_ACTION
+}
+
+enum LegalActionType {
+  WARNING_NOTICE
+  WATER_DISCONNECTION
+  LEGAL_FILING
+  FIELD_VISIT
+}
+
 // =========================
 // USER MODEL
 // =========================
 model User {
-  id String @id @default(uuid())
-
-  fullName       String
-  phoneE164      String @unique
-  email          String @unique
-  nationalId     String @unique
-  passwordHash   String
-  profileImageUrl String?
-
-  otp       String?
-  otpExpiry DateTime?
-  emailVerified Boolean @default(false)
-
+  id               String            @id @default(uuid())
+  fullName         String
+  phoneE164        String            @unique
+  email            String            @unique
+  nationalId       String            @unique
+  passwordHash     String
+  profileImageUrl  String?
+  otp              String?
+  otpExpiry        DateTime?
+  emailVerified    Boolean           @default(false)
   role             UserRole
   fieldOfficerType FieldOfficerType?
-  status           AccountStatus @default(ACTIVE)
+  status           AccountStatus     @default(ACTIVE)
+  paymentFlag      CustomerFlag      @default(NONE)
+  flaggedAt        DateTime?
   lastLoginAt      DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
 
   subCityId String?
   subCity   SubCity? @relation(fields: [subCityId], references: [id], onDelete: Restrict)
 
   woredaId String?
-  woreda   Woreda? @relation(fields: [woredaId], references: [id], onDelete: SetNull)
+  woreda   Woreda?  @relation(fields: [woredaId], references: [id], onDelete: SetNull)
 
-  // Relations
-  meter Meter?
+  flaggedById String?
+  flaggedBy   User?   @relation("FlaggedBy", fields: [flaggedById], references: [id])
+  flaggedUsers User[] @relation("FlaggedBy")
 
-  meterReadingsCreated MeterReading[] @relation("MeterReadingCreatedBy")
-  bills                Bill[]
-  payments             Payment[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  meter                    Meter?
+  meterReadingsCreated     MeterReading[]     @relation("MeterReadingCreatedBy")
+  bills                    Bill[]             @relation("CustomerBills")
+  billsProcessed           Bill[]             @relation("ProcessedBy")
+  payments                 Payment[]
+  complaintsSubmitted      Complaint[]        @relation("SubmittedBy")
+  complaintsAssigned       Complaint[]        @relation("AssignedOfficer")
+  schedulesCreated         Schedule[]         @relation("ScheduleCreatedBy")
+  schedulesUpdated         Schedule[]         @relation("ScheduleUpdatedBy")
+  submissionWindowsCreated SubmissionWindow[] @relation("WindowCreatedBy")
+  legalActionsOnCustomer   LegalAction[]      @relation("LegalActionCustomer")
+  legalActionsPerformed    LegalAction[]      @relation("LegalActionOfficer")
 
   @@index([subCityId])
   @@index([woredaId])
 }
 
 // =========================
+// SUBCITY MODEL
+// =========================
+model SubCity {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users   User[]
+  woredas Woreda[]
+}
+
+// =========================
+// WOREDA MODEL
+// =========================
+model Woreda {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  subCityId String
+  subCity   SubCity @relation(fields: [subCityId], references: [id])
+
+  users      User[]
+  schedules  Schedule[]
+  complaints Complaint[]
+
+  @@unique([name, subCityId])
+  @@index([subCityId])
+}
+
+// =========================
 // METER MODEL
 // =========================
 model Meter {
-  id String @id @default(uuid())
-  meterNumber String @unique
+  id          String   @id @default(uuid())
+  meterNumber String   @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   customerId String? @unique
-  customer   User? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  customer   User?   @relation(fields: [customerId], references: [id], onDelete: SetNull)
 
   readings MeterReading[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 }
 
 // =========================
 // METER READING MODEL
 // =========================
 model MeterReading {
-  id String @id @default(uuid())
-
-  meterId String
-  meter   Meter @relation(fields: [meterId], references: [id])
-
+  id           String        @id @default(uuid())
   readingValue Float
   readingDate  DateTime
+  source       ReadingSource @default(OCR)
+  imageUrl     String?
+  createdAt    DateTime      @default(now())
+
+  meterId String
+  meter   Meter  @relation(fields: [meterId], references: [id])
 
   createdById String
-  createdBy   User @relation("MeterReadingCreatedBy", fields: [createdById], references: [id])
+  createdBy   User   @relation("MeterReadingCreatedBy", fields: [createdById], references: [id])
 
-  bills Bill[] // back-relation for Bill
+  tariffId String
+  tariff   Tariff @relation(fields: [tariffId], references: [id])
 
-  createdAt DateTime @default(now())
+  bill Bill?
 
   @@index([meterId])
   @@index([createdById])
@@ -113,82 +207,147 @@ model MeterReading {
 // BILL MODEL
 // =========================
 model Bill {
-  id String @id @default(uuid())
+  id             String     @id @default(uuid())
+  monthYear      String
+  consumption    Float
+  amount         Float
+  originalAmount Float
+  penaltyAmount  Float      @default(0)
+  penaltyCount   Int        @default(0)
+  penaltyApplied Boolean    @default(false)
+  dueDate        DateTime
+  status         BillStatus @default(UNPAID)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
 
   customerId String
-  customer   User @relation(fields: [customerId], references: [id])
+  customer   User   @relation("CustomerBills", fields: [customerId], references: [id])
 
-  meterReadingId String
+  meterReadingId String       @unique
   meterReading   MeterReading @relation(fields: [meterReadingId], references: [id])
 
-  consumption Float
-  amount      Float
-  status      String
+  processedById String?
+  processedBy   User?   @relation("ProcessedBy", fields: [processedById], references: [id])
 
-  payments Payment[]
-
-  createdAt DateTime @default(now())
+  payment Payment?
 
   @@index([customerId])
   @@index([meterReadingId])
+  @@index([monthYear])
 }
 
 // =========================
 // PAYMENT MODEL
 // =========================
 model Payment {
-  id String @id @default(uuid())
+  id          String        @id @default(uuid())
+  amount      Float
+  status      PaymentStatus @default(PENDING)
+  paymentDate DateTime      @default(now())
+  createdAt   DateTime      @default(now())
 
-  billId String
-  bill   Bill @relation(fields: [billId], references: [id])
+  billId String @unique
+  bill   Bill   @relation(fields: [billId], references: [id])
 
   userId String
-  user   User @relation(fields: [userId], references: [id])
-
-  amount Float
-  paymentDate DateTime @default(now())
-  createdAt DateTime @default(now())
+  user   User   @relation(fields: [userId], references: [id])
 
   @@index([billId])
   @@index([userId])
 }
 
 // =========================
-// WATER TARIFF MODEL
+// TARIFF MODEL
 // =========================
 model Tariff {
-  id String @id @default(uuid())
-
+  id                 String   @id @default(uuid())
   pricePerCubicMeter Float
-  effectiveFrom DateTime
+  effectiveFrom      DateTime
+  createdAt          DateTime @default(now())
 
-  createdAt DateTime @default(now())
+  readings MeterReading[]
 }
 
 // =========================
-// SUBCITY MODEL
+// SCHEDULE MODEL
 // =========================
-model SubCity {
-  id   String @id @default(uuid())
-  name String @unique
+model Schedule {
+  id        String    @id @default(uuid())
+  day       DayOfWeek
+  startTime String
+  endTime   String
+  note      String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
-  users   User[]
-  woredas Woreda[]
+  woredaId String
+  woreda   Woreda @relation(fields: [woredaId], references: [id])
 
-  createdAt DateTime @default(now())
+  createdById String
+  createdBy   User   @relation("ScheduleCreatedBy", fields: [createdById], references: [id])
+
+  updatedById String?
+  updatedBy   User?   @relation("ScheduleUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([woredaId])
 }
 
 // =========================
-// WOREDA MODEL
+// COMPLAINT MODEL
 // =========================
-model Woreda {
-  id   String @id @default(uuid())
-  name String
+model Complaint {
+  id          String          @id @default(uuid())
+  title       String
+  description String
+  status      ComplaintStatus @default(OPEN)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
 
-  subCityId String
-  subCity   SubCity @relation(fields: [subCityId], references: [id])
+  woredaId String
+  woreda   Woreda @relation(fields: [woredaId], references: [id])
 
-  users User[]
+  submittedById String
+  submittedBy   User   @relation("SubmittedBy", fields: [submittedById], references: [id])
 
-  @@index([subCityId])
+  assignedToId String?
+  assignedTo   User?   @relation("AssignedOfficer", fields: [assignedToId], references: [id])
+
+  @@index([woredaId])
+  @@index([submittedById])
+  @@index([assignedToId])
+}
+
+// =========================
+// SUBMISSION WINDOW MODEL
+// =========================
+model SubmissionWindow {
+  id        String   @id @default(uuid())
+  startDay  Int
+  endDay    Int
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  createdById String
+  createdBy   User   @relation("WindowCreatedBy", fields: [createdById], references: [id])
+}
+
+// =========================
+// LEGAL ACTION MODEL
+// =========================
+model LegalAction {
+  id          String          @id @default(uuid())
+  type        LegalActionType
+  description String
+  actionDate  DateTime        @default(now())
+  createdAt   DateTime        @default(now())
+
+  customerId String
+  customer   User   @relation("LegalActionCustomer", fields: [customerId], references: [id])
+
+  officerId String
+  officer   User   @relation("LegalActionOfficer", fields: [officerId], references: [id])
+
+  @@index([customerId])
+  @@index([officerId])
 }

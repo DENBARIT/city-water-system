@@ -2,7 +2,8 @@ import express from 'express';
 import { config } from 'dotenv';
 import { connectDB, disconnectDB } from './config/db.js';
 import superAdminRoutes from './modules/superAdmin/superAdmin.routes.js';
-// import superAdminRoutes from './modules/superAdmin/superAdminRoutes.js';
+import subcityAdminRoutes from './modules/subcityAdmin/subcityAdmin.routes.js';
+import woredaAdminRoutes from './modules/woredaAdmin/woredaAdmin.routes.js'
 import authRoutes from './modules/auth/auth.routes.js';
 import colors from 'colors';
 import cors from 'cors';
@@ -29,7 +30,8 @@ const port = process.env.PORT || 5001;
 
 app.use('/auth', authRoutes);
 app.use('/super-admin', superAdminRoutes);
-// app.use('/subcity-admin', subcityAdminRoutes);
+app.use('/subcity-admin', subcityAdminRoutes);
+app.use('/woreda-admin', woredaAdminRoutes);
 
 //error handling middleware
 app.use(errorHandler);
