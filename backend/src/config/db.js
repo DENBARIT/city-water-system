@@ -1,33 +1,42 @@
 import { PrismaClient } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
-import pg from 'pg';
 import dotenv from 'dotenv';
+import colors from 'colors';
+
 dotenv.config();
 
-const { Pool } = pg;
+const globalForPrisma = globalThis;
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
+const prisma =
+  globalForPrisma.prisma ||
+  new PrismaClient({
+    log:
+      process.env.NODE_ENV === 'development'
+        ? ['query', 'info', 'warn', 'error']
+        : ['error'],
+  });
 
-const adapter = new PrismaPg(pool);
+  export default prisma;
 
-export const prisma = new PrismaClient({
-  adapter,
-  log: process.env.NODE_ENV === 'development' ? ['query', 'info', 'warn', 'error'] : ['error'],
-});
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = prisma;
+}
 
 export const connectDB = async () => {
   try {
     await prisma.$connect();
-    console.log('Connected to the database');
+    console.log(colors.cyan.bold('✔ Database connected successfully'));
   } catch (error) {
-    console.error(`Database connection error: ${error.message}`);
+    console.error(colors.red.bold('✖ Database connection failed'));
+    console.error(error.message);
     process.exit(1);
   }
 };
 
 export const disconnectDB = async () => {
-  await prisma.$disconnect();
-  console.log('Disconnected from the database');
+  try {
+    await prisma.$disconnect();
+    console.log(colors.yellow('Database disconnected'));
+  } catch (error) {
+    console.error('Error disconnecting database:', error.message);
+  }
 };
